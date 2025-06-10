@@ -43,6 +43,8 @@
 
 
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "VL53L1X_api.h"
 
 static const uint8_t status_rtn[24] = { 
@@ -78,47 +80,62 @@ VL53L1X_ERROR esp_to_vl53l1x_error( esp_err_t esp_code )
     }
 }
 
-VL53L1X_ERROR VL53L1_WriteMulti(uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t count) 
+VL53L1X_ERROR VL53L1_WriteMulti(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint8_t *pdata, uint32_t count)
 {
-    i2c_start_write( dev );
-    i2c_write_byte( index >> 8 );
-    i2c_write_byte( index & 0xFF );
-    i2c_write( pdata, count );
-    esp_err_t esp_code = i2c_transmit();
-    return esp_to_vl53l1x_error( esp_code );
+    esp_err_t err;
+    uint8_t write_buf[2 + count];
+
+    // Insert index (register address) in big-endian format
+    write_buf[0] = index >> 8;
+    write_buf[1] = index & 0xFF;
+
+    // Copy data payload
+    memcpy(&write_buf[2], pdata, count);
+
+    err = i2c_master_transmit(dev_handle, write_buf, 2 + count, 1000);
+
+    return esp_to_vl53l1x_error(err);
 }
 
-// the ranging_sensor_comms.dll will take care of the page selection
-VL53L1X_ERROR VL53L1_ReadMulti(uint16_t dev, uint16_t index, uint8_t *pdata, uint32_t count) 
+VL53L1X_ERROR VL53L1_ReadMulti(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint8_t *pdata, uint32_t count)
 {
-    i2c_start_write( dev );
-    i2c_write_byte( index >> 8 );
-    i2c_write_byte( index & 0xFF );
-    i2c_start_read( dev );
-    i2c_read( pdata, count );
-    esp_err_t esp_code = i2c_transmit();
-    return esp_to_vl53l1x_error( esp_code );
+    esp_err_t err;
+    uint8_t index_buf[2];
+
+    index_buf[0] = index >> 8;     // MSB
+    index_buf[1] = index & 0xFF;   // LSB
+
+    // Perform combined write (index) + read (pdata)
+    err = i2c_master_transmit_receive(dev_handle, index_buf, sizeof(index_buf), 
+        pdata, count, 1000);
+
+    return esp_to_vl53l1x_error(err);
 }
 
-VL53L1X_ERROR VL53L1_WrByte(uint16_t dev, uint16_t index, uint8_t data) 
+VL53L1X_ERROR VL53L1_WrByte(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint8_t data) 
 {
     int  status;
     uint8_t write_data = data;
-    status = VL53L1_WriteMulti(dev, index, &write_data, 1);
+    status = VL53L1_WriteMulti(dev_handle, index, &write_data, 1);
     return status;
 }
 
-VL53L1X_ERROR VL53L1_WrWord(uint16_t dev, uint16_t index, uint16_t data) 
+VL53L1X_ERROR VL53L1_WrWord(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint16_t data) 
 {
     int  status;
     uint8_t buffer[2];
     buffer[0] = data >> 8;
     buffer[1] = data & 0x00FF;
-    status = VL53L1_WriteMulti(dev, index, (uint8_t *)buffer, 2);
+    status = VL53L1_WriteMulti(dev_handle, index, (uint8_t *)buffer, 2);
     return status;
 }
 
-VL53L1X_ERROR VL53L1_WrDWord(uint16_t dev, uint16_t index, uint32_t data) 
+VL53L1X_ERROR VL53L1_WrDWord(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint32_t data) 
 {
     int  status;
     uint8_t buffer[4];
@@ -126,45 +143,49 @@ VL53L1X_ERROR VL53L1_WrDWord(uint16_t dev, uint16_t index, uint32_t data)
     buffer[1] = (data >> 16) & 0xFF;
     buffer[2] = (data >>  8) & 0xFF;
     buffer[3] = (data >>  0) & 0xFF;
-    status = VL53L1_WriteMulti(dev, index, (uint8_t *)buffer, 4);
+    status = VL53L1_WriteMulti(dev_handle, index, (uint8_t *)buffer, 4);
     return status;
 }
 
-VL53L1X_ERROR VL53L1_UpdateByte(uint16_t dev, uint16_t index, uint8_t AndData, uint8_t OrData) 
+VL53L1X_ERROR VL53L1_UpdateByte(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint8_t AndData, uint8_t OrData) 
 {
     int  status;
     uint8_t buffer = 0;
 
     /* read data direct onto buffer */
-    status = VL53L1_ReadMulti(dev, index, &buffer, 1);
+    status = VL53L1_ReadMulti(dev_handle, index, &buffer, 1);
     if (status) return status;
     buffer = (buffer & AndData) | OrData;
-    status = VL53L1_WriteMulti(dev, index, &buffer, (uint16_t)1);
+    status = VL53L1_WriteMulti(dev_handle, index, &buffer, (uint16_t)1);
     return status;
 }
 
-VL53L1X_ERROR VL53L1_RdByte(uint16_t dev, uint16_t index, uint8_t *data) 
+VL53L1X_ERROR VL53L1_RdByte(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint8_t *data) 
 {
     int  status;
-    status = VL53L1_ReadMulti(dev, index, data, 1);
+    status = VL53L1_ReadMulti(dev_handle, index, data, 1);
     return status ? -1 : 0;
 }
 
-VL53L1X_ERROR VL53L1_RdWord(uint16_t dev, uint16_t index, uint16_t *data) 
+VL53L1X_ERROR VL53L1_RdWord(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint16_t *data) 
 {
     int  status;
     uint8_t buffer[2] = {0, 0};
-    status = VL53L1_ReadMulti(dev, index, buffer, 2);
+    status = VL53L1_ReadMulti(dev_handle, index, buffer, 2);
     if ( status ) return status;
     *data = (buffer[0] << 8) + buffer[1];
     return status;
 }
 
-VL53L1X_ERROR VL53L1_RdDWord(uint16_t dev, uint16_t index, uint32_t *data) 
+VL53L1X_ERROR VL53L1_RdDWord(i2c_master_dev_handle_t dev_handle, uint16_t index,
+    uint32_t *data) 
 {
     int status;
     uint8_t buffer[4] = {0, 0, 0, 0};
-    status = VL53L1_ReadMulti(dev, index, buffer, 4);
+    status = VL53L1_ReadMulti(dev_handle, index, buffer, 4);
     if ( status ) return status;
     *data = ((uint32_t)buffer[0] << 24) + ((uint32_t)buffer[1] << 16) + ((uint32_t)buffer[2] << 8) + (uint32_t)buffer[3];
     return status;
@@ -187,23 +208,11 @@ VL53L1X_ERROR VL53L1_GetTimerFrequency(int32_t *ptimer_freq_hz)
 	return VL53L1_ERROR_NONE;
 }
 
-VL53L1X_ERROR VL53L1_WaitMs(uint16_t dev, int32_t wait_ms)
-{
-    vTaskDelay( MAX( 1, wait_ms / portTICK_PERIOD_MS ) );
-	return VL53L1_ERROR_NONE;
-}
-
-VL53L1X_ERROR VL53L1_WaitUs(uint16_t dev, int32_t wait_us)
-{
-    vTaskDelay( MAX( 1, wait_us / 1000 / portTICK_PERIOD_MS ) );
-	return VL53L1_ERROR_NONE;
-}
-
 // other useful device functions
 
-VL53L1X_ERROR VL53L1X_SetFastI2C(uint16_t dev)
+VL53L1X_ERROR VL53L1X_SetFastI2C(i2c_master_dev_handle_t dev_handle)
 {
-    return VL53L1_WrByte(dev, VL53L1_PAD_I2C_HV__CONFIG, 0x14 );
+    return VL53L1_WrByte(dev_handle, VL53L1_PAD_I2C_HV__CONFIG, 0x14 );
 }
 
 /**
@@ -215,23 +224,24 @@ VL53L1X_ERROR VL53L1X_SetFastI2C(uint16_t dev)
  *		-   [6] = mode_range__timed
  *		-   [7] = mode_range__abort 
  */
-VL53L1X_ERROR VL53L1X_SetRangingMode(uint16_t dev, uint8_t set_ranging_mode)
+VL53L1X_ERROR VL53L1X_SetRangingMode(i2c_master_dev_handle_t dev_handle,
+    uint8_t set_ranging_mode)
 {
     uint8_t mode_start;
-    VL53L1_RdByte(dev, VL53L1_SYSTEM__MODE_START, &mode_start );
+    VL53L1_RdByte(dev_handle, VL53L1_SYSTEM__MODE_START, &mode_start );
     mode_start = ( mode_start & 0x0F ) | set_ranging_mode;
-    return VL53L1_WrByte(dev, VL53L1_SYSTEM__MODE_START, mode_start );
+    return VL53L1_WrByte(dev_handle, VL53L1_SYSTEM__MODE_START, mode_start );
 }
 
-VL53L1X_ERROR VL53L1X_SystemStatus(uint16_t dev, uint8_t *state)
+VL53L1X_ERROR VL53L1X_SystemStatus(i2c_master_dev_handle_t dev_handle, uint8_t *state)
 {
-	return VL53L1_RdByte(dev, VL53L1_FIRMWARE__SYSTEM_STATUS, state);
+	return VL53L1_RdByte(dev_handle, VL53L1_FIRMWARE__SYSTEM_STATUS, state);
 }
 
-char *VL53L1X_SystemStatusString(uint16_t dev)
+char *VL53L1X_SystemStatusString(i2c_master_dev_handle_t dev_handle)
 {
     uint8_t system_status;
-	VL53L1_RdByte(dev, VL53L1_FIRMWARE__SYSTEM_STATUS, &system_status);
+	VL53L1_RdByte(dev_handle, VL53L1_FIRMWARE__SYSTEM_STATUS, &system_status);
     switch( system_status ) {
     case VL53L1_STATE_POWERDOWN:        return "VL53L1_STATE_POWERDOWN";
     case VL53L1_STATE_WAIT_STATICINIT:  return "VL53L1_STATE_WAIT_STATICINIT";
@@ -245,88 +255,40 @@ char *VL53L1X_SystemStatusString(uint16_t dev)
     }
 }
 
-VL53L1X_ERROR VL53L1X_GetContinuousMeasurement(uint16_t dev, uint8_t *rangeStatus, uint16_t *distanceMM)
+VL53L1X_ERROR VL53L1X_GetContinuousMeasurement(i2c_master_dev_handle_t dev_handle,
+    uint8_t *rangeStatus, uint16_t *distanceMM)
 {
 	VL53L1X_ERROR status;
 
 	// VL53L1X_GetRangeStatus(dev, &RangeStatus)
 	uint8_t RgSt;
-	status = VL53L1_RdByte(dev, VL53L1_RESULT__RANGE_STATUS, &RgSt);
+	status = VL53L1_RdByte(dev_handle, VL53L1_RESULT__RANGE_STATUS, &RgSt);
 	*rangeStatus = (RgSt < 24) ? status_rtn[RgSt] : RgSt & 0x1F;
 
 	//	VL53L1X_GetDistance(dev, &Distance)
-	VL53L1_RdWord(dev, VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, distanceMM);
+	VL53L1_RdWord(dev_handle, VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, distanceMM);
 
     //  VL53L1X_ClearInterrupt(dev)
-	VL53L1_WrByte(dev, SYSTEM__INTERRUPT_CLEAR, 0x01);
+	VL53L1_WrByte(dev_handle, SYSTEM__INTERRUPT_CLEAR, 0x01);
 
 	return status;
 }
 
-VL53L1X_ERROR VL53L1X_GetAndRestartMeasurement(uint16_t dev, uint8_t *rangeStatus, uint16_t *distanceMM)
+VL53L1X_ERROR VL53L1X_GetAndRestartMeasurement(i2c_master_dev_handle_t dev_handle,
+    uint8_t *rangeStatus, uint16_t *distanceMM)
 {
 	VL53L1X_ERROR status;
 
 	// VL53L1X_GetRangeStatus(dev, &RangeStatus)
 	uint8_t RgSt;
-	status = VL53L1_RdByte(dev, VL53L1_RESULT__RANGE_STATUS, &RgSt);
+	status = VL53L1_RdByte(dev_handle, VL53L1_RESULT__RANGE_STATUS, &RgSt);
 	*rangeStatus = (RgSt < 24) ? status_rtn[RgSt] : RgSt & 0x1F;
 
 	//	VL53L1X_GetDistance(dev, &Distance)
-	VL53L1_RdWord(dev, VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, distanceMM);
+	VL53L1_RdWord(dev_handle, VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0, distanceMM);
 
     //  VL53L1X_StartRanging(dev)
-    VL53L1_WrByte(dev, SYSTEM__MODE_START, 0x40);
+    VL53L1_WrByte(dev_handle, SYSTEM__MODE_START, 0x40);
 
 	return status;
-}
-
-VL53L1X_ERROR VL53L1X_InitSensorArray(VL53L1_DEV sensor_array, uint8_t sensor_count)
-{
-    uint8_t sensorState = 0;
-    uint16_t timeout_check = 0;
-    int k;
-
-    // shut off all sensors and initialize sensor structures
-    for ( k = 0; k < sensor_count; k++ ) {
-        pinMode( sensor_array[k].shutdown_pin, OUTPUT_OPEN );
-        digitalWrite( sensor_array[k].shutdown_pin, LOW );
-        sensor_array[k].time_stamp = esp_timer_get_time();
-        sensor_array[k].cycle_time = 0;
-        sensor_array[k].range_mm = 0;
-        sensor_array[k].range_status = 0;
-        sensor_array[k].range_error = VL53L1_ERROR_NONE;
-    }
-    vTaskDelay( 100 / portTICK_PERIOD_MS );
-
-    for ( k = 0; k < sensor_count; k++ ) {
-
-        // enable this device and wait for it to boot up
-        digitalWrite( sensor_array[k].shutdown_pin, HIGH );
-        timeout_check = sensorState = 0;
-        while ( sensorState == 0 ) {
-            vTaskDelay( 20 / portTICK_PERIOD_MS );
-            VL53L1X_BootState( VL53L1_I2C_ADDRESS, &sensorState );
-            if ( ++timeout_check > 10 ) return VL53L1_ERROR_TIME_OUT;
-        }
-
-        // initialize the device
-        VL53L1X_SensorInit( VL53L1_I2C_ADDRESS );
-
-        // change it's I2C address and use that new I2C address from now on
-        VL53L1X_SetI2CAddress( VL53L1_I2C_ADDRESS, sensor_array[k].I2cDevAddr );
-
-        // configure the device
-        VL53L1X_SetFastI2C( sensor_array[k].I2cDevAddr );
-        VL53L1X_SetDistanceMode( sensor_array[k].I2cDevAddr, sensor_array[k].distance_mode );
-        VL53L1X_SetTimingBudgetInMs( sensor_array[k].I2cDevAddr, sensor_array[k].timing_budget );       
-        VL53L1X_SetInterMeasurementInMs( sensor_array[k].I2cDevAddr, sensor_array[k].inter_measurement ); 
-        VL53L1X_SetRangingMode( sensor_array[k].I2cDevAddr, RANGING_MODE_SINGLE_SHOT );
-
-        // kick off measurement cycle
-        VL53L1X_StartRanging( sensor_array[k].I2cDevAddr );   
-    }
-    vTaskDelay( 100 / portTICK_PERIOD_MS );
-
-	return VL53L1_ERROR_NONE;
 }

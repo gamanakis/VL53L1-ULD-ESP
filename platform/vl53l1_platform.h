@@ -80,7 +80,8 @@ typedef int8_t VL53L1X_ERROR;
 typedef struct {
 
 	// configuration:
-	uint8_t     	I2cDevAddr;
+	i2c_master_dev_handle_t dev_handle;
+	uint8_t			I2cDevAddr;
 	gpio_num_t  	shutdown_pin;
 	gpio_num_t  	interrupt_pin;
 	uint8_t			distance_mode;
@@ -130,7 +131,7 @@ typedef VL53L1_Dev_t *VL53L1_DEV;
  * To be implemented by the developer
  */
 int8_t VL53L1_WriteMulti(
-		uint16_t 			dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint8_t      *pdata,
 		uint32_t      count);
@@ -138,7 +139,7 @@ int8_t VL53L1_WriteMulti(
  * To be implemented by the developer
  */
 int8_t VL53L1_ReadMulti(
-		uint16_t 			dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint8_t      *pdata,
 		uint32_t      count);
@@ -146,67 +147,61 @@ int8_t VL53L1_ReadMulti(
  * To be implemented by the developer
  */
 int8_t VL53L1_WrByte(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint8_t       data);
 /** @brief VL53L1_WrWord() definition.\n
  * To be implemented by the developer
  */
 int8_t VL53L1_WrWord(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint16_t      data);
 /** @brief VL53L1_WrDWord() definition.\n
  * To be implemented by the developer
  */
 int8_t VL53L1_WrDWord(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint32_t      data);
 /** @brief VL53L1_RdByte() definition.\n
  * To be implemented by the developer
  */
 int8_t VL53L1_RdByte(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint8_t      *pdata);
 /** @brief VL53L1_RdWord() definition.\n
  * To be implemented by the developer
  */
 int8_t VL53L1_RdWord(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint16_t     *pdata);
 /** @brief VL53L1_RdDWord() definition.\n
  * To be implemented by the developer
  */
 int8_t VL53L1_RdDWord(
-		uint16_t dev,
+		i2c_master_dev_handle_t dev_handle,
 		uint16_t      index,
 		uint32_t     *pdata);
-/** @brief VL53L1_WaitMs() definition.\n
- * To be implemented by the developer
- */
-int8_t VL53L1_WaitMs(
-		uint16_t dev,
-		int32_t       wait_ms);
 
 // other useful device functions
 
-VL53L1X_ERROR VL53L1X_SetFastI2C(uint16_t dev);
+VL53L1X_ERROR VL53L1X_SetFastI2C(i2c_master_dev_handle_t dev_handle);
 
-VL53L1X_ERROR VL53L1X_SetRangingMode(uint16_t dev, uint8_t set_ranging_mode);
+VL53L1X_ERROR VL53L1X_SetRangingMode(i2c_master_dev_handle_t dev_handle,
+	uint8_t set_ranging_mode);
 
-VL53L1X_ERROR VL53L1X_SystemStatus(uint16_t dev, uint8_t *state);
+VL53L1X_ERROR VL53L1X_SystemStatus(i2c_master_dev_handle_t dev_handle, uint8_t *state);
 
-char *VL53L1X_SystemStatusString(uint16_t dev);
+char *VL53L1X_SystemStatusString(i2c_master_dev_handle_t dev_handle);
 
-VL53L1X_ERROR VL53L1X_GetContinuousMeasurement(uint16_t dev, uint8_t *rangeStatus, uint16_t *distanceMM);
+VL53L1X_ERROR VL53L1X_GetContinuousMeasurement(i2c_master_dev_handle_t dev_handle,
+	uint8_t *rangeStatus, uint16_t *distanceMM);
 
-VL53L1X_ERROR VL53L1X_GetAndRestartMeasurement(uint16_t dev, uint8_t *rangeStatus, uint16_t *distanceMM);
-
-VL53L1X_ERROR VL53L1X_InitSensorArray(VL53L1_DEV sensor_array, uint8_t sensor_count);
-
+VL53L1X_ERROR VL53L1X_GetAndRestartMeasurement(i2c_master_dev_handle_t dev_handle,
+	uint8_t *rangeStatus, uint16_t *distanceMM);
 
 #ifdef __cplusplus
 }

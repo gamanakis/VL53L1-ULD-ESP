@@ -70,34 +70,34 @@
 #define MM_CONFIG__INNER_OFFSET_MM			0x0020
 #define MM_CONFIG__OUTER_OFFSET_MM 			0x0022
 
-int8_t VL53L1X_CalibrateOffset(uint16_t dev, uint16_t TargetDistInMm, int16_t *offset)
+int8_t VL53L1X_CalibrateOffset(i2c_master_dev_handle_t dev_handle, uint16_t TargetDistInMm, int16_t *offset)
 {
 	uint8_t i, tmp;
 	int16_t AverageDistance = 0;
 	uint16_t distance;
 	VL53L1X_ERROR status = 0;
 
-	status = VL53L1_WrWord(dev, ALGO__PART_TO_PART_RANGE_OFFSET_MM, 0x0);
-	status = VL53L1_WrWord(dev, MM_CONFIG__INNER_OFFSET_MM, 0x0);
-	status = VL53L1_WrWord(dev, MM_CONFIG__OUTER_OFFSET_MM, 0x0);
-	status = VL53L1X_StartRanging(dev);	/* Enable VL53L1X sensor */
+	status = VL53L1_WrWord(dev_handle, ALGO__PART_TO_PART_RANGE_OFFSET_MM, 0x0);
+	status = VL53L1_WrWord(dev_handle, MM_CONFIG__INNER_OFFSET_MM, 0x0);
+	status = VL53L1_WrWord(dev_handle, MM_CONFIG__OUTER_OFFSET_MM, 0x0);
+	status = VL53L1X_StartRanging(dev_handle);	/* Enable VL53L1X sensor */
 	for (i = 0; i < 50; i++) {
 		tmp = 0;
 		while (tmp == 0){
-			status = VL53L1X_CheckForDataReady(dev, &tmp);
+			status = VL53L1X_CheckForDataReady(dev_handle, &tmp);
 		}
-		status = VL53L1X_GetDistance(dev, &distance);
-		status = VL53L1X_ClearInterrupt(dev);
+		status = VL53L1X_GetDistance(dev_handle, &distance);
+		status = VL53L1X_ClearInterrupt(dev_handle);
 		AverageDistance = AverageDistance + distance;
 	}
-	status = VL53L1X_StopRanging(dev);
+	status = VL53L1X_StopRanging(dev_handle);
 	AverageDistance = AverageDistance / 50;
 	*offset = TargetDistInMm - AverageDistance;
-	status = VL53L1_WrWord(dev, ALGO__PART_TO_PART_RANGE_OFFSET_MM, *offset*4);
+	status = VL53L1_WrWord(dev_handle, ALGO__PART_TO_PART_RANGE_OFFSET_MM, *offset*4);
 	return status;
 }
 
-int8_t VL53L1X_CalibrateXtalk(uint16_t dev, uint16_t TargetDistInMm, uint16_t *xtalk)
+int8_t VL53L1X_CalibrateXtalk(i2c_master_dev_handle_t dev_handle, uint16_t TargetDistInMm, uint16_t *xtalk)
 {
 	uint8_t i, tmp;
 	float AverageSignalRate = 0;
@@ -108,29 +108,29 @@ int8_t VL53L1X_CalibrateXtalk(uint16_t dev, uint16_t TargetDistInMm, uint16_t *x
 	VL53L1X_ERROR status = 0;
 	uint32_t calXtalk;
 
-	status = VL53L1_WrWord(dev, 0x0016,0);
-	status = VL53L1X_StartRanging(dev);
+	status = VL53L1_WrWord(dev_handle, 0x0016,0);
+	status = VL53L1X_StartRanging(dev_handle);
 	for (i = 0; i < 50; i++) {
 		tmp = 0;
 		while (tmp == 0){
-			status = VL53L1X_CheckForDataReady(dev, &tmp);
+			status = VL53L1X_CheckForDataReady(dev_handle, &tmp);
 		}
-		status= VL53L1X_GetSignalRate(dev, &sr);
-		status= VL53L1X_GetDistance(dev, &distance);
-		status = VL53L1X_ClearInterrupt(dev);
+		status= VL53L1X_GetSignalRate(dev_handle, &sr);
+		status= VL53L1X_GetDistance(dev_handle, &distance);
+		status = VL53L1X_ClearInterrupt(dev_handle);
 		AverageDistance = AverageDistance + distance;
-		status = VL53L1X_GetSpadNb(dev, &spadNum);
+		status = VL53L1X_GetSpadNb(dev_handle, &spadNum);
 		AverageSpadNb = AverageSpadNb + spadNum;
 		AverageSignalRate =
 		    AverageSignalRate + sr;
 	}
-	status = VL53L1X_StopRanging(dev);
+	status = VL53L1X_StopRanging(dev_handle);
 	AverageDistance = AverageDistance / 50;
 	AverageSpadNb = AverageSpadNb / 50;
 	AverageSignalRate = AverageSignalRate / 50;
 	/* Calculate Xtalk value */
 	calXtalk = (uint16_t)(512*(AverageSignalRate*(1-(AverageDistance/TargetDistInMm)))/AverageSpadNb);
 	*xtalk = (uint16_t)((calXtalk*1000)>>9);
-	status = VL53L1_WrWord(dev, 0x0016, (uint16_t)calXtalk);
+	status = VL53L1_WrWord(dev_handle, 0x0016, (uint16_t)calXtalk);
 	return status;
 }

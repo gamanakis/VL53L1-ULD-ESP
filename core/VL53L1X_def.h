@@ -564,25 +564,25 @@ typedef struct {
  */
 
 /* Defines */
-#define VL53L1_SETPARAMETERFIELD(Dev, field, value) \
-	(VL53L1DevDataSet(Dev, CurrentParameters.field, value))
+#define VL53L1_SETPARAMETERFIELD(dev_handle, field, value) \
+	(VL53L1DevDataSet(dev_handle, CurrentParameters.field, value))
 
-#define VL53L1_GETPARAMETERFIELD(Dev, field, variable) \
-	(variable = VL53L1DevDataGet(Dev, CurrentParameters).field)
-
-
-#define VL53L1_SETARRAYPARAMETERFIELD(Dev, field, index, value) \
-	(VL53L1DevDataSet(Dev, CurrentParameters.field[index], value))
-
-#define VL53L1_GETARRAYPARAMETERFIELD(Dev, field, index, variable) \
-	(variable = VL53L1DevDataGet(Dev, CurrentParameters).field[index])
+#define VL53L1_GETPARAMETERFIELD(dev_handle, field, variable) \
+	(variable = VL53L1DevDataGet(dev_handle, CurrentParameters).field)
 
 
-#define VL53L1_SETDEVICESPECIFICPARAMETER(Dev, field, value) \
-	(VL53L1DevDataSet(Dev, DeviceSpecificParameters.field, value))
+#define VL53L1_SETARRAYPARAMETERFIELD(dev_handle, field, index, value) \
+	(VL53L1DevDataSet(dev_handle, CurrentParameters.field[index], value))
 
-#define VL53L1_GETDEVICESPECIFICPARAMETER(Dev, field) \
-	(VL53L1DevDataGet(Dev, DeviceSpecificParameters).field)
+#define VL53L1_GETARRAYPARAMETERFIELD(dev_handle, field, index, variable) \
+	(variable = VL53L1DevDataGet(dev_handle, CurrentParameters).field[index])
+
+
+#define VL53L1_SETDEVICESPECIFICPARAMETER(dev_handle, field, value) \
+	(VL53L1DevDataSet(dev_handle, DeviceSpecificParameters.field, value))
+
+#define VL53L1_GETDEVICESPECIFICPARAMETER(dev_handle, field) \
+	(VL53L1DevDataGet(dev_handle, DeviceSpecificParameters).field)
 
 
 #define VL53L1_FIXPOINT1616TOFIXPOINT44(Value) \

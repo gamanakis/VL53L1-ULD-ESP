@@ -20,7 +20,7 @@ extern "C"
 {
 #endif
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
 
@@ -36,21 +36,7 @@ extern "C"
 
 #define ACK_CHECK_EN        true
 
-#define i2c_start_write( dev_address ) i2c_start( dev_address, I2C_WRITE )
-#define i2c_start_read( dev_address ) i2c_start( dev_address, I2C_READ )
-
-void i2c_scan();
-void i2c_get_config( i2c_port_t *port, gpio_num_t *pin_sda, gpio_num_t *pin_scl, uint32_t *freq );
-void i2c_init_config( i2c_port_t port, gpio_num_t pin_sda, gpio_num_t pin_scl, uint32_t freq );
-void i2c_init();
-void i2c_remove();
-void i2c_upgrade( uint32_t upgrade_freq );
-bool i2c_start( uint8_t i2c_device_address, i2c_rw_t read_write );
-size_t i2c_write_byte( uint8_t data_byte_out );
-size_t i2c_write( uint8_t *pByteBuffer, size_t NumByteToWrite );
-uint8_t i2c_read_byte();
-size_t i2c_read( uint8_t *pByteBuffer, size_t NumByteToRead );
-esp_err_t i2c_transmit();
+void i2c_scan(i2c_master_bus_handle_t bus_handle);
 
 #ifdef __cplusplus
 }
