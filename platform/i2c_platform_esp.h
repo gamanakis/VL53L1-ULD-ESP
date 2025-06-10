@@ -25,7 +25,7 @@ extern "C"
 #include "esp_err.h"
 
 #define I2C_DEFAULT_PORT    (I2C_NUM_0)
-#define I2C_DEFAULT_SDA     (GPIO_NUM_23)
+#define I2C_DEFAULT_SDA     (GPIO_NUM_21)
 #define I2C_DEFAULT_SCL     (GPIO_NUM_22)
 #define I2C_DEFAULT_FREQ    (400000)
 
